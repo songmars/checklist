@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>내 체크리스트</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: '맑은 고딕', sans-serif;
+            padding: 15px;
+            max-width: 400px;
+            margin: 0 auto;
+            background-color: #fff;
+        }
+        
+        /* 제목과 초기화 버튼을 가로로 배치 */
+        .header-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        h2 {
+            color: #333;
+            margin: 0;
+            font-size: 18px;
+        }
+        .reset-btn {
+            background: transparent;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            color: #888;
+        }
+        .reset-btn:hover { background: #eee; }
+        
+        /* 🗂️ 탭 영역 */
+        .tab-control-area {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        select {
+            flex: 1;
+            padding: 6px 10px;
+            font-size: 13px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+        
+        .tab-input {
+            flex: 1;
+            padding: 6px 10px;
+            font-size: 13px;
+            border: 2px solid #333;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .small-btn {
+            padding: 5px 8px;
+            font-size: 12px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #555;
+            white-space: nowrap;
+        }
+        .small-btn:hover { background-color: #eee; }
+        .small-btn.del { color: #e53935; }
+        .small-btn.confirm { background-color: #4CAF50; color: white; border: none; }
+        .small-btn.cancel { background-color: #aaa; color: white; border: none; }
+
+        /* 입력 영역 */
+        .input-area {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 15px;
+        }
+        input[type="text"].main-input {
+            padding: 8px 10px;
+            flex: 1;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            outline: none;
+        }
+        input[type="text"].main-input:focus { border-color: #888; }
+        
+        .add-btn {
+            padding: 8px 12px;
+            cursor: pointer;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        /* 리스트 영역 */
+        ul { list-style-type: none; padding: 0; margin: 0; }
+        li {
+            padding: 8px 0;
+            display: flex;
+            align-items: center; 
+            gap: 8px; 
+            border-bottom: 1px solid #f0f0f0;
+            width: 100%;
+        }
+        label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+        .task-text { font-size: 14px; word-break: break-all; }
+        .completed { color: #aaa; text-decoration: line-through; }
+        
+        .task-del-btn {
+            color: #bbb;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 6px;
+        }
+        .task-del-btn:hover { color: #e53935; }
+    </style>
+</head>
+<body>
+    <div class="header-area">
+        <h2>체크리스트</h2>
+        <!-- 🚨 새로 추가된 초기화 버튼 -->
+        <button class="reset-btn" id="resetAppBtn" onclick="resetApp()">초기화</button>
+    </div>
+
+    <!-- 기본 탭 조작 메뉴 -->
+    <div class="tab-control-area" id="tabMainControls">
+        <select id="tabSelect" onchange="switchTab(this.value)"></select>
+        <button class="small-btn" onclick="openTabEdit('add')">+ 추가</button>
+        <button class="small-btn" onclick="openTabEdit('rename')">수정</button>
+        <button class="small-btn del" id="delTabBtn" onclick="deleteTab()">삭제</button>
+    </div>
+
+    <!-- 탭 추가/수정 메뉴 -->
+    <div class="tab-control-area" id="tabEditControls" style="display: none;">
+        <input type="text" class="tab-input" id="tabNameInput" placeholder="탭 이름 입력">
+        <button class="small-btn confirm" onclick="saveTabName()">확인</button>
+        <button class="small-btn cancel" onclick="cancelTabEdit()">취소</button>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="taskInput" class="main-input" placeholder="추가할 내용 적기">
+        <button class="add-btn" onclick="addTask()">추가</button>
+    </div>
+
+    <ul id="taskList"></ul>
+
+    <script>
+        window.resizeTo(400, 600);
+
+        let appData = JSON.parse(localStorage.getItem('myChecklist')) || [
+          { id: 1, title: '기본 탭', tasks: [] }
+        ];
+        let currentTabId = appData[0] ? appData[0].id : null;
+        let tabEditMode = ''; 
+        let deleteConfirm = false; 
+        let resetConfirm = false; // 앱 전체 초기화 확인용
+
+        // 🚨 새로 추가된 전체 초기화 기능
+        function resetApp() {
+            const resetBtn = document.getElementById("resetAppBtn");
+            if (!resetConfirm) {
+                resetConfirm = true;
+                resetBtn.textContent = "진짜 초기화?";
+                resetBtn.style.backgroundColor = "#e53935";
+                resetBtn.style.color = "white";
+                resetBtn.style.borderColor = "#e53935";
+                
+                // 3초 뒤에 원래대로 복구
+                setTimeout(() => {
+                    resetConfirm = false;
+                    resetBtn.textContent = "초기화";
+                    resetBtn.style.backgroundColor = "transparent";
+                    resetBtn.style.color = "#888";
+                    resetBtn.style.borderColor = "#ddd";
+                }, 3000);
+            } else {
+                // 두 번 누르면 로컬 스토리지 삭제 후 기본 상태로 리셋
+                localStorage.removeItem('myChecklist');
+                appData = [{ id: 1, title: '기본 탭', tasks: [] }];
+                currentTabId = appData[0].id;
+                
+                resetConfirm = false;
+                resetBtn.textContent = "초기화";
+                resetBtn.style.backgroundColor = "transparent";
+                resetBtn.style.color = "#888";
+                resetBtn.style.borderColor = "#ddd";
+                
+                saveAndRender();
+            }
+        }
+
+        // 탭 목록 그리기
+        function renderTabs() {
+            const select = document.getElementById("tabSelect");
+            select.innerHTML = "";
+            
+            appData.forEach(tab => {
+                const option = document.createElement("option");
+                option.value = tab.id;
+                option.textContent = tab.title;
+                if (tab.id === currentTabId) option.selected = true;
+                select.appendChild(option);
+            });
+
+            const delBtn = document.getElementById("delTabBtn");
+            delBtn.style.display = appData.length > 1 ? "inline-block" : "none";
+            delBtn.textContent = "삭제";
+            delBtn.style.backgroundColor = "";
+            delBtn.style.color = "";
+            deleteConfirm = false; 
+        }
+
+        function switchTab(tabId) {
+            currentTabId = Number(tabId);
+            renderTasks();
+            cancelTabEdit(); 
+        }
+
+        // 팝업 없이 탭 입력창 열기
+        function openTabEdit(mode) {
+            tabEditMode = mode;
+            document.getElementById("tabMainControls").style.display = "none";
+            document.getElementById("tabEditControls").style.display = "flex";
+            
+            const input = document.getElementById("tabNameInput");
+            if (mode === 'add') {
+                input.value = "";
+                input.placeholder = "새 탭 이름 입력";
+            } else if (mode === 'rename') {
+                const currentTab = appData.find(t => t.id === currentTabId);
+                input.value = currentTab ? currentTab.title : "";
+            }
+            input.focus();
+        }
+
+        function cancelTabEdit() {
+            document.getElementById("tabMainControls").style.display = "flex";
+            document.getElementById("tabEditControls").style.display = "none";
+        }
+
+        function saveTabName() {
+            const newTitle = document.getElementById("tabNameInput").value.trim();
+            if (newTitle === "") {
+                cancelTabEdit();
+                return;
+            }
+
+            if (tabEditMode === 'add') {
+                const newId = Date.now();
+                appData.push({ id: newId, title: newTitle, tasks: [] });
+                currentTabId = newId;
+            } else if (tabEditMode === 'rename') {
+                const currentTab = appData.find(t => t.id === currentTabId);
+                if (currentTab) currentTab.title = newTitle;
+            }
+            
+            cancelTabEdit();
+            saveAndRender();
+        }
+
+        function deleteTab() {
+            if (appData.length <= 1) return;
+            
+            const delBtn = document.getElementById("delTabBtn");
+            if (!deleteConfirm) {
+                deleteConfirm = true;
+                delBtn.textContent = "진짜 삭제?";
+                delBtn.style.backgroundColor = "#e53935";
+                delBtn.style.color = "white";
+                
+                setTimeout(() => { renderTabs(); }, 3000);
+            } else {
+                appData = appData.filter(t => t.id !== currentTabId);
+                currentTabId = appData[0].id;
+                saveAndRender();
+            }
+        }
+
+        function renderTasks() {
+            const list = document.getElementById("taskList");
+            list.innerHTML = ""; 
+            
+            const currentTab = appData.find(t => t.id === currentTabId);
+            if (!currentTab) return;
+
+            currentTab.tasks.forEach(task => {
+                const li = document.createElement("li");
+                li.innerHTML = `
+                    <label>
+                        <input type="checkbox" onchange="toggleTask(${task.id})" ${task.done ? 'checked' : ''}>
+                        <span class="task-text ${task.done ? 'completed' : ''}">${task.text}</span>
+                    </label>
+                    <button class="task-del-btn" onclick="deleteTask(${task.id})">✖</button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function toggleTask(taskId) {
+            const currentTab = appData.find(t => t.id === currentTabId);
+            if (!currentTab) return;
+            const task = currentTab.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.done = !task.done;
+                saveAndRender();
+            }
+        }
+
+        function deleteTask(taskId) {
+            const currentTab = appData.find(t => t.id === currentTabId);
+            if (!currentTab) return;
+            currentTab.tasks = currentTab.tasks.filter(t => t.id !== taskId);
+            saveAndRender();
+        }
+
+        function addTask() {
+            const input = document.getElementById("taskInput");
+            if (input.value.trim() === "") return;
+            const currentTab = appData.find(t => t.id === currentTabId);
+            currentTab.tasks.push({ id: Date.now(), text: input.value, done: false });
+            input.value = "";
+            saveAndRender();
+        }
+
+        function saveAndRender() {
+            localStorage.setItem('myChecklist', JSON.stringify(appData));
+            renderTabs();
+            renderTasks();
+        }
+
+        document.getElementById("taskInput").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") addTask();
+        });
+        document.getElementById("tabNameInput").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") saveTabName();
+            if (event.key === "Escape") cancelTabEdit(); 
+        });
+
+        saveAndRender();
+    </script>
+</body>
+</html>
