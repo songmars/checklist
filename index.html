@@ -5,11 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>내 체크리스트</title>
     
-    <!-- PWA 필수 설정 -->
+    <!-- PWA 앱 다운로드/설치용 설정 -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#333333">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
         * { box-sizing: border-box; }
@@ -25,7 +23,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 15px;
         }
         h2 { color: #333; margin: 0; font-size: 18px; }
         
@@ -44,12 +42,13 @@
             color: #555;
         }
         .header-btn:hover { background: #eee; }
+        /* 앱 다운로드/설치가 가능할 때만 표시되는 버튼 */
         .header-btn.install {
             background-color: #333;
             color: white;
             border: none;
             font-weight: bold;
-            display: none; /* PWA 설치 가능할 때 자동으로 나타남 */
+            display: none; 
         }
 
         /* 🗂️ 탭 영역 */
@@ -152,12 +151,11 @@
         <h2>체크리스트</h2>
         <div class="top-btn-group">
             <button class="header-btn install" id="pwaInstallBtn" onclick="installPWA()">📲 앱 설치</button>
-            <button class="header-btn" id="notiBtn" onclick="requestNotification()">🔔 알림 켜기</button>
             <button class="header-btn" id="resetAppBtn" onclick="resetApp()">초기화</button>
         </div>
     </div>
 
-    <!-- 탭 컨트롤 -->
+    <!-- 탭 메뉴 -->
     <div class="tab-control-area" id="tabMainControls">
         <select id="tabSelect" onchange="switchTab(this.value)"></select>
         <button class="small-btn" onclick="openTabEdit('add')">+ 추가</button>
@@ -180,18 +178,17 @@
     <ul id="taskList"></ul>
 
     <script>
-        // 1. 서비스 워커 등록 (PWA 필수)
+        // PWA 앱 연결
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js');
         }
 
-        // 2. PWA 설치 이벤트 감지 및 버튼 표시
+        // 브라우저에서 다운로드/설치가 준비되면 [📲 앱 설치] 버튼 표시
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            const installBtn = document.getElementById('pwaInstallBtn');
-            installBtn.style.display = 'inline-block';
+            document.getElementById('pwaInstallBtn').style.display = 'inline-block';
         });
 
         function installPWA() {
@@ -206,33 +203,7 @@
             }
         }
 
-        // 3. 시스템 알림(Notification) 권한 요청 및 테스트 알림 발송
-        function requestNotification() {
-            if (!("Notification" in window)) {
-                alert("이 브라우저는 알림 기능을 지원하지 않습니다.");
-                return;
-            }
-
-            Notification.requestPermission().then((permission) => {
-                if (permission === "granted") {
-                    document.getElementById("notiBtn").textContent = "🔔 알림 On";
-                    sendNotification("알림이 활성화되었습니다!", "새로운 할 일을 추가할 때 알림을 받아보세요.");
-                } else {
-                    alert("알림 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.");
-                }
-            });
-        }
-
-        function sendNotification(title, body) {
-            if (Notification.permission === "granted") {
-                new Notification(title, {
-                    body: body,
-                    icon: "https://cdn-icons-png.flaticon.com/512/190/190411.png"
-                });
-            }
-        }
-
-        // --- 체크리스트 기본 로직 ---
+        // 기본 체크리스트 데이터 및 동작
         let appData = JSON.parse(localStorage.getItem('myChecklist')) || [
           { id: 1, title: '기본 탭', tasks: [] }
         ];
@@ -402,9 +373,6 @@
             const currentTab = appData.find(t => t.id === currentTabId);
             currentTab.tasks.push({ id: Date.now(), text: taskText, done: false });
             
-            // 할 일 추가 시 시스템 알림 발송
-            sendNotification("새 할 일 등록!", `"${taskText}" 항목이 추가되었습니다.`);
-
             input.value = "";
             saveAndRender();
         }
@@ -423,10 +391,6 @@
             if (event.key === "Escape") cancelTabEdit(); 
         });
 
-        // 초기 실행
-        if (Notification.permission === "granted") {
-            document.getElementById("notiBtn").textContent = "🔔 알림 On";
-        }
         saveAndRender();
     </script>
 </body>
