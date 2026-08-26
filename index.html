@@ -18,6 +18,11 @@
             margin: 0 auto;
             background-color: #fff;
         }
+        @keyframes pulse-glow {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
+            50% { transform: scale(1.05); box-shadow: 0 0 10px 4px rgba(255, 59, 48, 0.3); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+        }
         .tab-control-area select,
         .tab-control-area input,
         .input-area input {
@@ -49,11 +54,12 @@
         .header-btn:hover { background: #eee; }
         /* 앱 다운로드/설치가 가능할 때만 표시되는 버튼 */
         .header-btn.install {
-            background-color: #333;
+            background-color: #ff3b30; 
             color: white;
             border: none;
             font-weight: bold;
             display: none; 
+            animation: pulse-glow 1.5s infinite; 
         }
 
         /* 🗂️ 탭 영역 */
