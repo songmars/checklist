@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+    <link rel="manifest" href="manifest.json">
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>내 체크리스트</title>
@@ -37,7 +43,7 @@
         }
         .reset-btn:hover { background: #eee; }
         
-        /* 🗂️ 탭 영역 */
+        /* 탭 영역 */
         .tab-control-area {
             display: flex;
             align-items: center;
@@ -139,7 +145,7 @@
 <body>
     <div class="header-area">
         <h2>체크리스트</h2>
-        <!-- 🚨 새로 추가된 초기화 버튼 -->
+    
         <button class="reset-btn" id="resetAppBtn" onclick="resetApp()">초기화</button>
     </div>
 
@@ -176,7 +182,7 @@
         let deleteConfirm = false; 
         let resetConfirm = false; // 앱 전체 초기화 확인용
 
-        // 🚨 새로 추가된 전체 초기화 기능
+        // 초기화 기능
         function resetApp() {
             const resetBtn = document.getElementById("resetAppBtn");
             if (!resetConfirm) {
@@ -237,7 +243,7 @@
             cancelTabEdit(); 
         }
 
-        // 팝업 없이 탭 입력창 열기
+        // 탭 입력창 열기
         function openTabEdit(mode) {
             tabEditMode = mode;
             document.getElementById("tabMainControls").style.display = "none";
