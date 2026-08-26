@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <link rel="manifest" href="manifest.json">
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
-      }
-</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>내 체크리스트</title>
+    
+    <!-- PWA 필수 설정 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#333333">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <style>
         * { box-sizing: border-box; }
         body {
@@ -20,30 +21,38 @@
             background-color: #fff;
         }
         
-        /* 제목과 초기화 버튼을 가로로 배치 */
         .header-area {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
-        h2 {
-            color: #333;
-            margin: 0;
-            font-size: 18px;
+        h2 { color: #333; margin: 0; font-size: 18px; }
+        
+        .top-btn-group {
+            display: flex;
+            gap: 4px;
         }
-        .reset-btn {
+
+        .header-btn {
             background: transparent;
             border: 1px solid #ddd;
             border-radius: 4px;
             padding: 4px 8px;
             font-size: 11px;
             cursor: pointer;
-            color: #888;
+            color: #555;
         }
-        .reset-btn:hover { background: #eee; }
-        
-        /* 탭 영역 */
+        .header-btn:hover { background: #eee; }
+        .header-btn.install {
+            background-color: #333;
+            color: white;
+            border: none;
+            font-weight: bold;
+            display: none; /* PWA 설치 가능할 때 자동으로 나타남 */
+        }
+
+        /* 🗂️ 탭 영역 */
         .tab-control-area {
             display: flex;
             align-items: center;
@@ -59,7 +68,6 @@
             outline: none;
             cursor: pointer;
         }
-        
         .tab-input {
             flex: 1;
             padding: 6px 10px;
@@ -68,7 +76,6 @@
             border-radius: 4px;
             outline: none;
         }
-
         .small-btn {
             padding: 5px 8px;
             font-size: 12px;
@@ -99,7 +106,6 @@
             outline: none;
         }
         input[type="text"].main-input:focus { border-color: #888; }
-        
         .add-btn {
             padding: 8px 12px;
             cursor: pointer;
@@ -130,7 +136,6 @@
         }
         .task-text { font-size: 14px; word-break: break-all; }
         .completed { color: #aaa; text-decoration: line-through; }
-        
         .task-del-btn {
             color: #bbb;
             border: none;
@@ -145,11 +150,14 @@
 <body>
     <div class="header-area">
         <h2>체크리스트</h2>
-    
-        <button class="reset-btn" id="resetAppBtn" onclick="resetApp()">초기화</button>
+        <div class="top-btn-group">
+            <button class="header-btn install" id="pwaInstallBtn" onclick="installPWA()">📲 앱 설치</button>
+            <button class="header-btn" id="notiBtn" onclick="requestNotification()">🔔 알림 켜기</button>
+            <button class="header-btn" id="resetAppBtn" onclick="resetApp()">초기화</button>
+        </div>
     </div>
 
-    <!-- 기본 탭 조작 메뉴 -->
+    <!-- 탭 컨트롤 -->
     <div class="tab-control-area" id="tabMainControls">
         <select id="tabSelect" onchange="switchTab(this.value)"></select>
         <button class="small-btn" onclick="openTabEdit('add')">+ 추가</button>
@@ -157,13 +165,13 @@
         <button class="small-btn del" id="delTabBtn" onclick="deleteTab()">삭제</button>
     </div>
 
-    <!-- 탭 추가/수정 메뉴 -->
     <div class="tab-control-area" id="tabEditControls" style="display: none;">
         <input type="text" class="tab-input" id="tabNameInput" placeholder="탭 이름 입력">
         <button class="small-btn confirm" onclick="saveTabName()">확인</button>
         <button class="small-btn cancel" onclick="cancelTabEdit()">취소</button>
     </div>
 
+    <!-- 할 일 입력 -->
     <div class="input-area">
         <input type="text" id="taskInput" class="main-input" placeholder="추가할 내용 적기">
         <button class="add-btn" onclick="addTask()">추가</button>
@@ -172,17 +180,67 @@
     <ul id="taskList"></ul>
 
     <script>
-        window.resizeTo(400, 600);
+        // 1. 서비스 워커 등록 (PWA 필수)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
 
+        // 2. PWA 설치 이벤트 감지 및 버튼 표시
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const installBtn = document.getElementById('pwaInstallBtn');
+            installBtn.style.display = 'inline-block';
+        });
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        document.getElementById('pwaInstallBtn').style.display = 'none';
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+
+        // 3. 시스템 알림(Notification) 권한 요청 및 테스트 알림 발송
+        function requestNotification() {
+            if (!("Notification" in window)) {
+                alert("이 브라우저는 알림 기능을 지원하지 않습니다.");
+                return;
+            }
+
+            Notification.requestPermission().then((permission) => {
+                if (permission === "granted") {
+                    document.getElementById("notiBtn").textContent = "🔔 알림 On";
+                    sendNotification("알림이 활성화되었습니다!", "새로운 할 일을 추가할 때 알림을 받아보세요.");
+                } else {
+                    alert("알림 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.");
+                }
+            });
+        }
+
+        function sendNotification(title, body) {
+            if (Notification.permission === "granted") {
+                new Notification(title, {
+                    body: body,
+                    icon: "https://cdn-icons-png.flaticon.com/512/190/190411.png"
+                });
+            }
+        }
+
+        // --- 체크리스트 기본 로직 ---
         let appData = JSON.parse(localStorage.getItem('myChecklist')) || [
           { id: 1, title: '기본 탭', tasks: [] }
         ];
         let currentTabId = appData[0] ? appData[0].id : null;
         let tabEditMode = ''; 
         let deleteConfirm = false; 
-        let resetConfirm = false; // 앱 전체 초기화 확인용
+        let resetConfirm = false;
 
-        // 초기화 기능
         function resetApp() {
             const resetBtn = document.getElementById("resetAppBtn");
             if (!resetConfirm) {
@@ -192,16 +250,14 @@
                 resetBtn.style.color = "white";
                 resetBtn.style.borderColor = "#e53935";
                 
-                // 3초 뒤에 원래대로 복구
                 setTimeout(() => {
                     resetConfirm = false;
                     resetBtn.textContent = "초기화";
                     resetBtn.style.backgroundColor = "transparent";
-                    resetBtn.style.color = "#888";
+                    resetBtn.style.color = "#555";
                     resetBtn.style.borderColor = "#ddd";
                 }, 3000);
             } else {
-                // 두 번 누르면 로컬 스토리지 삭제 후 기본 상태로 리셋
                 localStorage.removeItem('myChecklist');
                 appData = [{ id: 1, title: '기본 탭', tasks: [] }];
                 currentTabId = appData[0].id;
@@ -209,14 +265,13 @@
                 resetConfirm = false;
                 resetBtn.textContent = "초기화";
                 resetBtn.style.backgroundColor = "transparent";
-                resetBtn.style.color = "#888";
+                resetBtn.style.color = "#555";
                 resetBtn.style.borderColor = "#ddd";
                 
                 saveAndRender();
             }
         }
 
-        // 탭 목록 그리기
         function renderTabs() {
             const select = document.getElementById("tabSelect");
             select.innerHTML = "";
@@ -243,7 +298,6 @@
             cancelTabEdit(); 
         }
 
-        // 탭 입력창 열기
         function openTabEdit(mode) {
             tabEditMode = mode;
             document.getElementById("tabMainControls").style.display = "none";
@@ -342,9 +396,15 @@
 
         function addTask() {
             const input = document.getElementById("taskInput");
-            if (input.value.trim() === "") return;
+            const taskText = input.value.trim();
+            if (taskText === "") return;
+            
             const currentTab = appData.find(t => t.id === currentTabId);
-            currentTab.tasks.push({ id: Date.now(), text: input.value, done: false });
+            currentTab.tasks.push({ id: Date.now(), text: taskText, done: false });
+            
+            // 할 일 추가 시 시스템 알림 발송
+            sendNotification("새 할 일 등록!", `"${taskText}" 항목이 추가되었습니다.`);
+
             input.value = "";
             saveAndRender();
         }
@@ -363,6 +423,10 @@
             if (event.key === "Escape") cancelTabEdit(); 
         });
 
+        // 초기 실행
+        if (Notification.permission === "granted") {
+            document.getElementById("notiBtn").textContent = "🔔 알림 On";
+        }
         saveAndRender();
     </script>
 </body>
