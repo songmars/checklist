@@ -1,7 +1,7 @@
 {
   "name": "내 체크리스트",
   "short_name": "체크리스트",
-  "start_url": "./index.html?v=3",
+  "start_url": "./index.html?v=4",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#333333",
